@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gelişmiş Sızma Testi Rapor Oluşturucu v3.3</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
+    <script src="https://unpkg.com/html-docx-js@0.3.1/dist/html-docx.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        @media print {
+            body { -webkit-print-color-adjust: exact; color-adjust: exact; }
+            .no-print { display: none !important; }
+            #report-preview { box-shadow: none; border: none; margin: 0; padding: 0; }
+            .report-page {
+                page-break-after: always;
+                border: none !important; box-shadow: none !important; border-radius: 0 !important;
+            }
+            .vulnerability-card, .toc-item, .summary-table { page-break-inside: avoid; }
+        }
+        .report-page {
+            background: white; padding: 2.5rem; margin-bottom: 2rem; border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e5e7eb;
+        }
+        .report-page h2 {
+            border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5rem; margin-bottom: 1.5rem;
+            font-size: 1.875rem; font-weight: 800; color: #111827;
+        }
+        .vulnerability-card { border-left-width: 4px; }
+        .tab-button.active { border-color: #4f46e5; background-color: #eef2ff; color: #4f46e5; }
+        .prose ul { list-style-position: inside; }
+        .prose ul li { padding-left: 1em; text-indent: -1em; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="max-w-screen-2xl mx-auto p-4 sm:p-6 lg:p-8 grid grid-cols-12 gap-8">
+        
+        <!-- KONTROL PANELİ -->
+        <div class="no-print col-span-12 lg:col-span-5 xl:col-span-4 bg-white p-6 rounded-xl shadow-lg h-fit sticky top-8">
+            <div class="flex justify-between items-center mb-4">
+                 <h1 class="text-2xl font-bold text-gray-900">Rapor Oluşturucu</h1>
+                 <div class="flex space-x-2">
+                    <button id="export-word-button" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-300 flex items-center text-sm">Word</button>
+                    <button id="print-button" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition duration-300 flex items-center text-sm">PDF</button>
+                 </div>
+            </div>
+           
+            <div class="mb-6 border-b border-gray-200">
+                <nav class="flex -mb-px" id="tabs">
+                    <button data-tab="tab-meta" class="tab-button active text-gray-600 hover:text-indigo-600 py-4 px-1 text-center border-b-2 font-medium text-sm flex-1">Rapor Bilgileri</button>
+                    <button data-tab="tab-findings" class="tab-button text-gray-600 hover:text-indigo-600 py-4 px-1 text-center border-b-2 font-medium text-sm flex-1">Bulgu Ekle</button>
+                    <button data-tab="tab-content" class="tab-button text-gray-600 hover:text-indigo-600 py-4 px-1 text-center border-b-2 font-medium text-sm flex-1">İçerik</button>
+                </nav>
+            </div>
+            
+            <div id="tab-content-container">
+                <div id="tab-meta" class="tab-pane space-y-4">
+                     <h3 class="text-lg font-semibold text-gray-800">Genel Rapor Bilgileri</h3>
+                    <div><label for="meta-kurumAdi" class="block text-sm font-medium text-gray-700">Kurum Adı</label><input type="text" id="meta-kurumAdi" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"></div>
+                    <div>
+                        <label for="meta-logo" class="block text-sm font-medium text-gray-700">Kurum Logosu</label>
+                        <input type="file" id="meta-logo" accept="image/*" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"/>
+                        <img id="logo-preview" class="mt-2 h-20 w-auto bg-gray-100 p-1 rounded" src="" alt="Logo Önizleme"/>
+                    </div>
+                    <input type="hidden" id="meta-logo-base64">
+                    <div><label for="meta-testTuru" class="block text-sm font-medium text-gray-700">Test Türü</label><input type="text" id="meta-testTuru" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"></div>
+                    <div><label for="meta-versiyon" class="block text-sm font-medium text-gray-700">Versiyon</label><input type="text" id="meta-versiyon" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"></div>
+                    <div><label for="meta-testTarihi" class="block text-sm font-medium text-gray-700">Test Tarihi</label><input type="text" id="meta-testTarihi" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"></div>
+                    <div><label for="meta-testEkibi" class="block text-sm font-medium text-gray-700">Test Ekibi (Her satıra bir kişi)</label><textarea id="meta-testEkibi" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"></textarea></div>
+                </div>
+
+                <form id="tab-findings" class="tab-pane hidden">
+                     <h3 class="text-lg font-semibold text-gray-800 mb-4">Yeni Bulgu Ekle</h3>
+                     <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="block text-sm font-medium text-gray-700">Ref No</label><input type="text" id="vuln-ref" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm" placeholder="Örn: EA001"></div>
+                            <div><label class="block text-sm font-medium text-gray-700">Kategori</label><select id="vuln-category" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"></select></div>
+                        </div>
+                        <input type="hidden" id="vuln-id">
+                        <div><label class="block text-sm font-medium text-gray-700">Bulgu Adı</label><input type="text" id="vuln-name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"></div>
+                        <div><label class="block text-sm font-medium text-gray-700">Risk Seviyesi</label><select id="vuln-severity" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"><option>Yüksek</option><option>Orta</option><option>Düşük</option><option>Kritik</option><option>Acil</option></select></div>
+                        <div><label class="block text-sm font-medium text-gray-700">Etkilenen Sistemler</label><input type="text" id="vuln-affected" placeholder="10.125.0.52, ..." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"></div>
+                        <div><label class="block text-sm font-medium text-gray-700">Bulgu Açıklaması (Markdown)</label><textarea id="vuln-description" rows="6" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"></textarea></div>
+                        <div><label class="block text-sm font-medium text-gray-700">Çözüm Önerisi (Markdown)</label><textarea id="vuln-remediation" rows="4" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"></textarea></div>
+                        <div><label class="block text-sm font-medium text-gray-700">Kanıt (URL - Her satıra bir tane)</label><textarea id="vuln-proof" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm" placeholder="https://.../image1.png"></textarea></div>
+                        <div class="text-right space-x-2">
+                           <button type="button" id="clear-finding-form" class="py-2 px-4 border rounded-md text-sm font-medium bg-white hover:bg-gray-50">Temizle</button>
+                           <button type="submit" id="submit-finding-button" class="py-2 px-4 border rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700">Bulgu Ekle</button>
+                        </div>
+                    </div>
+                </form>
+                
+                <div id="tab-content" class="tab-pane hidden space-y-4">
+                    <h3 class="text-lg font-semibold text-gray-800">Rapor Metinleri (Markdown Destekler)</h3>
+                    <div id="content-fields" class="space-y-4"></div>
+                    <hr>
+                    <h3 class="text-lg font-semibold text-gray-800">Özel Bölümler</h3>
+                    <form id="custom-section-form" class="space-y-3 p-3 bg-gray-50 rounded-lg">
+                        <input type="text" id="custom-section-title" placeholder="Yeni Bölüm Başlığı" class="block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+                        <textarea id="custom-section-content" placeholder="Yeni Bölüm İçeriği (Markdown)" rows="5" class="block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"></textarea>
+                        <button type="submit" class="w-full py-2 px-4 rounded-md text-white bg-indigo-600 hover:bg-indigo-700 text-sm font-medium">Özel Bölüm Ekle</button>
+                    </form>
+                    <div id="custom-sections-list" class="space-y-2"></div>
+                </div>
+            </div>
+            <div class="mt-6 text-center"><button id="clear-data" class="text-sm text-red-500 hover:text-red-700">Tüm Rapor Verilerini Temizle</button></div>
+        </div>
+
+        <!-- RAPOR ÖNİZLEME -->
+        <div class="col-span-12 lg:col-span-7 xl:col-span-8">
+            <div id="report-preview" class="report-container"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DEĞİŞKENLER VE TEMEL AYARLAR ---
+            const markdownConverter = new showdown.Converter({ghCompatibleHeaderId: true, simplifiedAutoLink: true, openLinksInNewWindow: true});
+            let reportData = {};
+
+            const initialData = {
+                metadata: {
+                    kurumAdi: 'TWITTER', logoBase64: '', testTuru: 'Yerel Ağ Sızma Testi Sonuç Raporu',
+                    versiyon: '1.1', testTarihi: '02-04 Ocak 2025',
+                    testEkibi: `Tutku, Sızma Testi Uzmanı, "OSCP, OSCE"\nAhsen, Sızma Testi Uzmanı, "TSE, ISO 27001 LA"`
+                },
+                categories: [
+                    'İletişim Altyapısı ve Aktif Cihazlar', 'DNS Servisleri', 'Etki Alanı ve Kullanıcı Bilgisayarları',
+                    'E-posta Servisleri', 'Veri Tabanı Servisleri', 'Uygulama Servisleri / Web Sunucuları',
+                    'Sosyal Mühendislik Güvenlik Testi'
+                ],
+                categoryContentMapping: {
+                    'İletişim Altyapısı ve Aktif Cihazlar': 'commInfraDesc', 'DNS Servisleri': 'dnsServicesDesc',
+                    'Etki Alanı ve Kullanıcı Bilgisayarları': 'domainComputersDesc', 'E-posta Servisleri': 'emailServicesDesc',
+                    'Veri Tabanı Servisleri': 'dbServicesDesc', 'Uygulama Servisleri / Web Sunucuları': 'webServicesDesc',
+                    'Sosyal Mühendislik Güvenlik Testi': 'socialEngDesc'
+                },
+                content: {
+                    legalDisclaimer: `Bu raporun içeriği GİZLİ gizlilik derecesinde olup iki tarafın yazılı mutabakatı olmadan üçüncü şahıslara basılı olarak (hardcopy) ya da elektronik ortamda (softcopy) transfer edilemez veya çoğaltılamaz. \n\nRapor, testin yapıldığı anda kapsamda belirtilen sistemlerin bilinen güvenlik açıkları açısından durumunu göstermektedir. Testler için planlanan zaman çerçevesinde, kapsam dâhilindeki sistemlerin üzerinde bulunan açıklıkların azamisinin tespit edilerek raporlanması hedeflenmiştir. Ancak hedefe odaklanmış, yeterince donanımlı, kaynağa ve çok daha fazla zamana sahip saldırganların, bu raporda belirtilen güvenlik açıklarından belki daha fazlasını bulup, kötüye kullanması olasılığı her zaman bulunmaktadır. \n\nÇözüm önerileri, tespit edilen sorunlarla ilgili kabul gören çözüm önerileri olup uygulanması sebebi ile kurum sistemlerinde çıkabilecek problemlerden sorumlu tutulamaz.`,
+                    executive: `Bu sızma testi, kurumumuzun bilgi teknolojileri altyapısının içeriden ve dışarıdan gelebilecek siber tehditlere karşı mevcut direncini ölçmek amacıyla gerçekleştirilmiştir...`,
+                    methodology: `Bu sızma testi çalışması, kurum içindeki güvenlik açıklarının belirlenmesi amacıyla, sınırlı sistem bilgisi ile gerçekleştirilen bir “Gri Kutu (Grey Box)” yaklaşımı ile uygulanmıştır...`,
+                    scope: `Bu sızma testi, TWITTER kurumunun bilgi sistemleri üzerindeki güvenlik kontrollerinin değerlendirilmesi amacıyla, kurumun talebi ve onayı doğrultusunda gerçekleştirilmiştir...`,
+                    severityLevels: `Bulunan her güvenlik açığı, önem sırasına göre **Acil, Kritik, Yüksek, Orta, Düşük** olarak sınıflandırılmıştır. \n\n- **ACİL:** Sistemin tamamen ele geçirilmesine neden olan ve basit araçlarla istismar edilebilen zafiyetler.\n- **KRİTİK:** Nitelikli bir saldırgan tarafından sistemin tamamen ele geçirilmesine yol açan zafiyetler.\n- **YÜKSEK:** Hak yükseltme veya hizmet dışı bırakma gibi ciddi sonuçları olan zafiyetler.\n- **ORTA:** Genellikle yerel ağdan gerçekleştirilen ve hizmet kesintisine yol açabilen zafiyetler.\n- **DÜŞÜK:** En iyi güvenlik pratiklerinin izlenmemesinden kaynaklanan ve dolaylı riskler içeren eksiklikler.`,
+                    commInfraDesc: `- Yönlendiricinin işletim sisteminin barındırdığı bulguların araştırılması.\n- Tespit edilen açıkların uygulanabilirliklerinin sınanması\n- Anahtar üzerindeki VLAN ve trunk yapısının denetlenmesi\n- Anahtar üzerindeki port güvenliğinin denetlenmesi`,
+                    dnsServicesDesc: `- DNS sunucuların topolojik konumunun incelenmesi\n- DNS Sunucusunun alan yapılandırmasında yer alan kayıtların ortaya çıkarılmaya çalışılması\n- DNS sunucular için ön bellek zehirlemesi gerçekleştirilmeye çalışılması`,
+                    domainComputersDesc: `- Sunucu ve kullanıcı bilgisayarlarında hassas bilgi içeren ve yetkisiz erişime olanak sağlayan paylaşımlar kontrol edilmiştir.\n- Etki alanında uygulanan şifre, hesap kilitleme politikaları kontrol edilmiştir.\n- Etki alanındaki yetkili kullanıcıların ayrıcalıkları ve kullanım şekilleri kontrol edilmiştir.`,
+                    emailServicesDesc: `- E-posta sunucularının topolojik konumu incelenmiştir.\n- Sunucular üzerindeki yönlendirme (relaying) zafiyetlerini incelemek için bir dizi e- posta gönderilmiştir.\n- E-posta sunucu üzerinde kimlik doğrulamanın aktif olup olmadığı incelenmiştir.`,
+                    dbServicesDesc: `- Veri tabanı sunucusunun yedekleme ve kurtarma mekanizması incelenmiştir.\n- Veri tabanının kurulumu ile birlikte gelen ve kullanıcılar için atanan varsayılan değerler kontrol edilmiştir.\n- Veri tabanı sunucularına uzaktan erişimin güvenli olup olmadığı kontrol edilmiştir.`,
+                    webServicesDesc: `- Sunucularda kullanılan yazılımların sürüm bilgileri toplanmış ve bu sürümlerin desteklenip desteklenmediği değerlendirilmiştir.\n- Web servislerinde yaygın olarak görülebilecek güvenlik zafiyetleri test edilmiştir.\n- Güncellenmemiş veya destek süresi dolmuş yazılım bileşenlerinin tespiti sağlanarak, oluşabilecek riskler değerlendirilmiştir.`,
+                    socialEngDesc: `- Sosyal ağlar, arama motorları, web siteleri kullanılarak kurum ve çalışanları hakkında bilgi elde edilmeye çalışılması.\n- Kurum içinden veya dışından gönderilecek e-postalar ile kullanıcı bilgisayarlarına sızma denemesi gerçekleştirilmesi.\n- **Örnek Senaryo:** Kurum çalışanlarına "TvPLUS" temalı bir oltalama kampanyası düzenlenmiş, cazip bir teklif sunularak zararlı bağlantıya tıklamaları teşvik edilmiştir.`,
+                    assessment: `Gerçekleştirilen sızma testi sonucunda, kurumumuzun bilgi teknolojileri altyapısında farklı katmanlara yayılmış çeşitli güvenlik açıkları tespit edilmiştir...`,
+                    toolsUsed: `- **Ağ Tarayıcıları:** Nessus, OpenVAS, Metasploit, Nmap\n- **Web Uygulama Araçları:** Netsparker, Nikto2, Sqlmap, OwaspZAP\n- **Diğer Araçlar:** Wireshark, Kali Linux Araçları, Dirbuster`
+                },
+                contentSchema: [
+                    { key: 'legalDisclaimer', label: 'Yasal Sorumluluk' }, { key: 'executive', label: 'Yönetici Özeti' }, { key: 'scope', label: 'Kapsam' }, { key: 'methodology', label: 'Metodoloji' },
+                    { key: 'severityLevels', label: 'Bulgu Önem Dereceleri' }, { key: 'toolsUsed', label: 'Kullanılan Araçlar' },
+                    { key: 'assessment', label: 'Tüm Bulguların Birlikte Değerlendirilmesi' }
+                ],
+                findings: [], customSections: []
+            };
+
+            // --- YARDIMCI FONKSİYONLAR ---
+            const getSeverityDetails = (s) => ({'Acil':{b:'bg-red-800',t:'border-red-800',x:'text-white'},'Kritik':{b:'bg-red-600',t:'border-red-600',x:'text-white'},'Yüksek':{b:'bg-orange-500',t:'border-orange-500',x:'text-white'},'Orta':{b:'bg-yellow-400',t:'border-yellow-400',x:'text-gray-900'},'Düşük':{b:'bg-blue-500',t:'border-blue-500',x:'text-white'}}[s]||{b:'bg-gray-500',t:'border-gray-500',x:'text-white'});
+            const mdToHtml = (md) => markdownConverter.makeHtml(md || '');
+            const sanitizeForId = (text) => text.toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+            const saveAndRender = () => { localStorage.setItem('pentestReportDataV3', JSON.stringify(reportData)); renderReport(); };
+            const loadData = () => { const d=localStorage.getItem('pentestReportDataV3'); reportData = d ? JSON.parse(d) : JSON.parse(JSON.stringify(initialData)); };
+
+            // --- RENDER FONKSİYONLARI ---
+            function renderReport() {
+                const reportPreview = document.getElementById('report-preview');
+                reportPreview.innerHTML = '';
+                const tocItems = [];
+
+                const addPage = (title, content, idPrefix = 'section') => {
+                    const page = document.createElement('div');
+                    page.className = 'report-page';
+                    const pageId = `${idPrefix}-${sanitizeForId(title)}`;
+                    if (title) {
+                        page.innerHTML = `<h2 id="${pageId}">${title}</h2>`;
+                        tocItems.push({ title, id: pageId });
+                    }
+                    if (typeof content === 'string') {
+                        const contentDiv = document.createElement('div');
+                        contentDiv.className = 'prose max-w-none text-gray-700 leading-relaxed';
+                        contentDiv.innerHTML = mdToHtml(content);
+                        page.appendChild(contentDiv);
+                    } else if (content) {
+                        page.appendChild(content);
+                    }
+                    reportPreview.appendChild(page);
+                };
+                
+                const coverPage = document.createElement('div');
+                coverPage.className = 'report-page';
+                coverPage.innerHTML = `<div class="text-center flex flex-col items-center justify-center h-[90vh]">${reportData.metadata.logoBase64 ? `<img src="${reportData.metadata.logoBase64}" alt="Kurum Logosu" class="max-h-40 w-auto mb-8">` : ''}<p class="text-2xl">${reportData.metadata.kurumAdi}</p><h1 class="text-5xl font-extrabold my-4">${reportData.metadata.testTuru}</h1><p class="mt-8">Versiyon: ${reportData.metadata.versiyon}</p><p>Test Tarihi: ${reportData.metadata.testTarihi}</p></div>`;
+                reportPreview.appendChild(coverPage);
+
+                reportData.contentSchema.forEach(item => addPage(item.label, reportData.content[item.key]));
+                reportData.customSections.forEach(section => addPage(section.title, section.content, `custom`));
+                
+                if(reportData.findings.length > 0) {
+                    const summaryContent = document.createElement('div');
+                    let summaryTableHtml = `<h3 class="text-xl font-bold mb-4">Bulgu Özet Tablosu</h3><table class="w-full text-left border-collapse summary-table"><thead><tr class="bg-gray-100"><th class="p-2 border">Ref No</th><th class="p-2 border">Bulgu Adı</th><th class="p-2 border">Önem Derecesi</th></tr></thead><tbody>`;
+                    [...reportData.findings].sort((a,b)=>a.ref.localeCompare(b.ref)).forEach(f => {
+                         const sev = getSeverityDetails(f.severity);
+                         summaryTableHtml += `<tr class="hover:bg-gray-50 cursor-pointer" onclick="document.getElementById('finding-${f.id}').scrollIntoView({behavior: 'smooth'});"><td class="p-2 border">${f.ref}</td><td class="p-2 border">${f.name}</td><td class="p-2 border"><span class="px-2 py-1 text-xs rounded-full ${sev.b} ${sev.x}">${f.severity}</span></td></tr>`;
+                    });
+                    summaryTableHtml += '</tbody></table>';
+                    
+                    const catCounts = reportData.categories.reduce((acc, cat) => ({...acc, [cat]:{'Acil':0,'Kritik':0,'Yüksek':0,'Orta':0,'Düşük':0,'TOPLAM':0}}), {});
+                    reportData.findings.forEach(f => { if(catCounts[f.category]) { catCounts[f.category][f.severity]++; catCounts[f.category]['TOPLAM']++; }});
+                    let catTableHtml = `<h3 class="text-xl font-bold mt-12 mb-4">Kategoriye Göre Bulgu Tablosu</h3><table class="w-full text-left border-collapse summary-table"><thead><tr class="bg-gray-100"><th class="p-2 border">Kategoriler</th>${['Acil','Kritik','Yüksek','Orta','Düşük'].map(s=>`<th class="p-2 border">${s.toUpperCase()}</th>`).join('')}<th class="p-2 border">TOPLAM</th></tr></thead><tbody>`;
+                    reportData.categories.forEach(cat => {
+                        catTableHtml += `<tr><td class="p-2 border font-semibold">${cat}</td>`;
+                        ['Acil','Kritik','Yüksek','Orta','Düşük'].forEach(s => catTableHtml += `<td class="p-2 border text-center">${catCounts[cat][s]||0}</td>`);
+                        catTableHtml += `<td class="p-2 border text-center font-bold">${catCounts[cat]['TOPLAM']}</td></tr>`;
+                    });
+                    catTableHtml += '</tbody></table>';
+                    summaryContent.innerHTML = `${summaryTableHtml}${catTableHtml}`;
+                    addPage('Bulgu Özetleri', summaryContent);
+                }
+
+                reportData.categories.forEach(category => {
+                    const findingsForCat = reportData.findings.filter(f => f.category === category);
+                    if (findingsForCat.length > 0) {
+                        const catContentKey = reportData.categoryContentMapping[category];
+                        let descHtml = catContentKey && reportData.content[catContentKey] ? `<div class="prose max-w-none text-gray-700 leading-relaxed mb-8">${mdToHtml(reportData.content[catContentKey])}</div>` : '';
+                        
+                        let findingsHtml = '';
+                        findingsForCat.sort((a,b) => a.ref.localeCompare(b.ref)).forEach(vuln => {
+                            const sev = getSeverityDetails(vuln.severity);
+                            let proofHtml = vuln.proof ? '<div class="mt-4 grid grid-cols-1 gap-4">' + vuln.proof.split('\n').filter(u=>u.trim()).map(u=>`<div class="border rounded-lg p-2"><img src="${u}" class="w-full h-auto" alt="Kanıt" onerror="this.parentElement.innerHTML = 'Görsel yüklenemedi: ' + this.src"></div>`).join('') + '</div>' : '';
+                            findingsHtml += `<div id="finding-${vuln.id}" class="vulnerability-card p-6 rounded-lg shadow-md ${sev.b.replace('bg-','bg-opacity-10 ')} ${sev.t} my-8">
+                                <div class="flex justify-between items-start mb-4"><h3 class="text-2xl font-bold ${sev.t.replace('border-','text-')}">${vuln.ref}: ${vuln.name}</h3><div class="flex items-center space-x-2"><button class="edit-finding-btn p-1 text-gray-500 hover:text-indigo-600" data-id="${vuln.id}">✏️</button><button class="delete-finding-btn p-1 text-gray-500 hover:text-red-600" data-id="${vuln.id}">🗑️</button><span class="text-sm font-bold py-1 px-3 rounded-full ${sev.b} ${sev.x}">${vuln.severity}</span></div></div>
+                                <div class="mb-6"><h4 class="text-lg font-semibold border-b pb-1 mb-2">Açıklama</h4><div class="prose max-w-none">${mdToHtml(vuln.description)}</div></div>
+                                <div class="mb-6"><h4 class="text-lg font-semibold border-b pb-1 mb-2">Çözüm</h4><div class="prose max-w-none">${mdToHtml(vuln.remediation)}</div></div>
+                                ${proofHtml ? `<div><h4 class="text-lg font-semibold border-b pb-1 mb-2">Kanıtlar</h4>${proofHtml}</div>` : ''}</div>`;
+                        });
+                        const categoryPageContent = document.createElement('div');
+                        categoryPageContent.innerHTML = descHtml + findingsHtml;
+                        addPage(category, categoryPageContent);
+                    }
+                });
+
+                const tocPage = document.createElement('div');
+                tocPage.className = 'report-page';
+                tocPage.innerHTML = `<h2>İçindekiler</h2><ul class="space-y-2 list-none p-0">${tocItems.map(item => `<li class="toc-item"><a href="#${item.id}" class="text-indigo-600 hover:underline">${item.title}</a></li>`).join('')}</ul>`;
+                reportPreview.insertBefore(tocPage, reportPreview.children[1]);
+
+                addFindingEventListeners();
+            }
+            
+            function updateInputsFromData() {
+                const meta = reportData.metadata;
+                document.getElementById('meta-kurumAdi').value = meta.kurumAdi;
+                document.getElementById('meta-logo-base64').value = meta.logoBase64;
+                document.getElementById('logo-preview').src = meta.logoBase64 || 'about:blank';
+                document.getElementById('meta-testTuru').value = meta.testTuru;
+                document.getElementById('meta-versiyon').value = meta.versiyon;
+                document.getElementById('meta-testTarihi').value = meta.testTarihi;
+                document.getElementById('meta-testEkibi').value = meta.testEkibi;
+
+                const contentFields = document.getElementById('content-fields');
+                contentFields.innerHTML = '';
+                reportData.contentSchema.forEach(item => {
+                    const div = document.createElement('div');
+                    div.innerHTML = `<label for="content-${item.key}" class="block text-sm font-medium text-gray-700">${item.label}</label><textarea id="content-${item.key}" rows="5" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm"></textarea>`;
+                    contentFields.appendChild(div);
+                    document.getElementById(`content-${item.key}`).value = reportData.content[item.key] || '';
+                });
+
+                renderCustomSectionsList();
+            }
+
+            function renderCustomSectionsList() {
+                const list = document.getElementById('custom-sections-list');
+                list.innerHTML = reportData.customSections.map(s => `<div class="flex justify-between items-center p-2 bg-white rounded border"><span>${s.title}</span><button class="delete-custom-section-btn text-red-500 hover:text-red-700" data-id="${s.id}">Sil</button></div>`).join('');
+                document.querySelectorAll('.delete-custom-section-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        reportData.customSections = reportData.customSections.filter(s => s.id != e.target.dataset.id);
+                        saveAndRender();
+                        renderCustomSectionsList();
+                    });
+                });
+            }
+            
+            function addFindingEventListeners() {
+                document.querySelectorAll('.delete-finding-btn').forEach(b => b.addEventListener('click', (e) => { if (confirm('Bu bulguyu silmek istediğinizden emin misiniz?')) { reportData.findings = reportData.findings.filter(f => f.id != e.target.dataset.id); saveAndRender(); }}));
+                document.querySelectorAll('.edit-finding-btn').forEach(b => b.addEventListener('click', (e) => {
+                    const f = reportData.findings.find(f => f.id == e.target.dataset.id);
+                    if(f) {
+                        document.querySelector('[data-tab="tab-findings"]').click();
+                        Object.keys(f).forEach(k => { const el = document.getElementById(`vuln-${k}`); if(el) el.value = f[k]; });
+                        document.getElementById('submit-finding-button').textContent = 'Bulguyu Güncelle';
+                    }
+                }));
+            }
+            
+            function setupEventListeners() {
+                document.getElementById('tabs').addEventListener('click', (e) => {
+                     if(e.target.matches('button[data-tab]')){
+                        const tabId = e.target.dataset.tab;
+                        document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+                        e.target.classList.add('active');
+                        document.querySelectorAll('.tab-pane').forEach(p => p.id === tabId ? p.classList.remove('hidden') : p.classList.add('hidden'));
+                     }
+                });
+
+                document.getElementById('clear-finding-form').addEventListener('click', () => {
+                    document.getElementById('tab-findings').reset();
+                    document.getElementById('vuln-id').value = '';
+                    document.getElementById('submit-finding-button').textContent = 'Bulgu Ekle';
+                });
+
+                document.getElementById('tab-findings').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const id = document.getElementById('vuln-id').value;
+                    const findingData = { id: id || Date.now() };
+                    Array.from(e.target.elements).forEach(el => {if(el.id.startsWith('vuln-')) findingData[el.id.replace('vuln-','')] = el.value;});
+                    
+                    if(id) {
+                        const index = reportData.findings.findIndex(f => f.id == id);
+                        if (index !== -1) reportData.findings[index] = findingData;
+                    } else {
+                        reportData.findings.push(findingData);
+                    }
+                    saveAndRender();
+                    document.getElementById('clear-finding-form').click();
+                });
+
+                document.getElementById('custom-section-form').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const title = document.getElementById('custom-section-title').value;
+                    const content = document.getElementById('custom-section-content').value;
+                    if(title && content) {
+                        reportData.customSections.push({ id: Date.now(), title, content });
+                        saveAndRender();
+                        renderCustomSectionsList();
+                        e.target.reset();
+                    }
+                });
+                
+                document.getElementById('tab-meta').addEventListener('input', (e) => {
+                    if (e.target.id === 'meta-logo') return;
+                     reportData.metadata.kurumAdi = document.getElementById('meta-kurumAdi').value;
+                     reportData.metadata.logoBase64 = document.getElementById('meta-logo-base64').value;
+                     reportData.metadata.testTuru = document.getElementById('meta-testTuru').value;
+                     reportData.metadata.versiyon = document.getElementById('meta-versiyon').value;
+                     reportData.metadata.testTarihi = document.getElementById('meta-testTarihi').value;
+                     reportData.metadata.testEkibi = document.getElementById('meta-testEkibi').value;
+                     saveAndRender();
+                });
+                
+                document.getElementById('tab-content').addEventListener('input', (e) => {
+                    if(e.target.tagName === 'TEXTAREA') {
+                        const key = e.target.id.replace('content-', '');
+                        if(reportData.content.hasOwnProperty(key)) {
+                             reportData.content[key] = e.target.value;
+                             saveAndRender();
+                        }
+                    }
+                });
+                
+                document.getElementById('meta-logo').addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if(file) {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                            document.getElementById('meta-logo-base64').value = ev.target.result;
+                            document.getElementById('logo-preview').src = ev.target.result;
+                            document.getElementById('tab-meta').dispatchEvent(new Event('input', { bubbles: true }));
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+                
+                document.getElementById('print-button').addEventListener('click', () => window.print());
+                document.getElementById('clear-data').addEventListener('click', () => {
+                    if(confirm('Emin misiniz? Tüm rapor verileri kalıcı olarak silinecektir.')) {
+                        localStorage.removeItem('pentestReportDataV3');
+                        loadData();
+                        updateInputsFromData();
+                        document.getElementById('vuln-category').innerHTML = reportData.categories.map(c => `<option>${c}</option>`).join('');
+                        saveAndRender();
+                    }
+                });
+                
+                document.getElementById('export-word-button').addEventListener('click', async () => {
+    try {
+        const header = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>Rapor</title></head><body>`;
+        const footer = `</body></html>`;
+
+        const reportContent = document.getElementById('report-preview').cloneNode(true);
+        
+        // Word'e aktarma için interaktif/sorunlu elementleri temizle
+        reportContent.querySelectorAll('script, button').forEach(el => el.remove());
+        reportContent.querySelectorAll('[onclick]').forEach(el => el.removeAttribute('onclick'));
+        reportContent.querySelectorAll('img').forEach(img => {
+            img.removeAttribute('onerror');
+            if (img.src.includes('about:blank')) img.remove();
+        });
+
+        const source = header + reportContent.innerHTML + footer;
+        
+        // htmlToDocx yerine htmlDocx kullanılıyor
+        const fileBuffer = htmlDocx.asBlob(source, {
+            orientation: 'portrait',
+            margins: { top: 720, right: 720, bottom: 720, left: 720 }
+        });
+
+        const url = URL.createObjectURL(fileBuffer);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${reportData.metadata.kurumAdi || 'Rapor'}.docx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+    } catch (error) {
+        console.error("Word'e aktarma işlemi başarısız:", error);
+        alert("Word'e aktarma sırasında bir hata oluştu. Lütfen geliştirici konsolunu kontrol edin.");
+    }
+});
+            }
+
+            // --- UYGULAMAYI BAŞLAT ---
+            loadData();
+            updateInputsFromData();
+            document.getElementById('vuln-category').innerHTML = reportData.categories.map(c => `<option>${c}</option>`).join('');
+            setupEventListeners();
+            renderReport();
+        });
+    </script>
+</body>
+</html>

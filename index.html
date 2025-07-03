@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rapor Yönetim Ekranı</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <h1>Rapor Yönetim Ekranı</h1>
+
+    <div class="action-buttons">
+        <button id="kaydetBtn">Raporu Kaydet</button>
+        <button id="yukleBtn">Rapor Yükle</button>
+        <input type="file" id="dosyaYukleInput" accept=".json" style="display: none;">
+    </div>
+
+    <div class="tab" id="tab-container">
+        <button class="tablinks" onclick="openTab(event, 'GenelBilgiler')" id="defaultOpen">Genel Bilgiler</button>
+        <button class="tablinks" onclick="openTab(event, 'Kapsam')">Kapsam Yönetimi</button>
+    </div>
+
+    <div id="GenelBilgiler" class="tabcontent">
+        <h3>Genel Rapor Bilgileri</h3>
+        <form id="genelBilgilerForm">
+            <label for="testiYapanFirma">Testi Yapan Firma Adı:</label>
+            <input type="text" id="testiYapanFirma" name="testiYapanFirma" placeholder="Testi yapan firmanın tam adını giriniz...">
+            <label for="testiYaptiranFirma">Testi Yaptıran Firma Adı:</label>
+            <input type="text" id="testiYaptiranFirma" name="testiYaptiranFirma" placeholder="Müşteri firmanın tam adını giriniz...">
+            <label for="testTarihi">Test Tarihi:</label>
+            <input type="date" id="testTarihi" name="testTarihi">
+            <label for="taslakRaporTarihi">Taslak Rapor Tarihi:</label>
+            <input type="date" id="taslakRaporTarihi" name="taslakRaporTarihi">
+            <label for="versiyon">Versiyon:</label>
+            <input type="text" id="versiyon" name="versiyon" placeholder="Örn: 1.0">
+            <label for="testPersonel">Testi Gerçekleştiren Personel (Virgülle ayırınız):</label>
+            <input type="text" id="testPersonel" name="testPersonel" placeholder="Örn: Veli YILDIRIM, Emre Atabey...">
+        </form>
+    </div>
+
+    <div id="Kapsam" class="tabcontent">
+        <h3>Kapsama Yeni Kategori Ekle</h3>
+        <p>Aşağıdaki menüden rapora dahil etmek istediğiniz test kategorisini seçip "Ekle" butonuna basın. Seçtiğiniz her kategori için yeni bir sekme oluşturulacaktır.</p>
+        <div class="kapsam-ekle-form">
+            <select id="testTipiSelect"></select>
+            <button id="testTipiEkleBtn">Ekle</button>
+        </div>
+    </div>
+    
+    <div id="dynamic-tab-contents"></div>
+
+    <script src="script.js"></script>
+
+</body>
+</html>
